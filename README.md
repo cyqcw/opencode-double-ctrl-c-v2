@@ -46,7 +46,7 @@ plugin works with the default keybindings as well.
 | Situation | `Ctrl+C` does |
 | --- | --- |
 | Prompt has text | Clears the prompt (unchanged) |
-| Text is selected | Copies the selection (unchanged) |
+| Text is selected | Copies the selection on Windows; on Linux/macOS/WSL the text was already copied on mouse-up, so the key acts as an exit intent — see [Platform differences in copy behavior](#platform-differences-in-copy-behavior) |
 | Prompt is empty | Shows *"Press Ctrl+C again to exit"* |
 | Prompt is empty, pressed again within the window | Exits OpenCode |
 | Prompt is empty, pressed again after the window | Shows the hint again, does not exit |
@@ -86,11 +86,12 @@ A TUI-only plugin is configured in `cli.json`, not in `opencode.json`. See the
 - **The plugin consumes `Ctrl+C` only when the prompt is empty.** In that state it stops the key from reaching the
   built-in *Exit the app* command, which is what makes zero-configuration work. When the prompt has text, or a selection
   is active, the key is passed through untouched and the built-in *clear input* / *copy* actions keep working.
-- **`_currentFocusedRenderable` is an internal property.** OpenCode does not expose the prompt contents through the
-  public plugin API, so the plugin reads `renderer._currentFocusedRenderable.plainText` to find out whether the prompt is
-  empty. If a future OpenCode release changes the renderer internals, this plugin may stop detecting the prompt state.
-  It fails safe: if the prompt state cannot be determined, the plugin does nothing and `Ctrl+C` keeps its default
-  behavior.
+- **`renderer.currentFocusedRenderable` is a renderer property, not a plugin API.** OpenCode does not expose the prompt
+  contents through the plugin API, so the plugin reads the focused renderable to find out whether the prompt is empty.
+  It prefers the public `renderer.currentFocusedRenderable` accessor and only falls back to the private
+  `renderer._currentFocusedRenderable` field on renderer builds that do not expose the accessor. If a future OpenCode
+  release changes the renderer internals, this plugin may stop detecting the prompt state. It fails safe: if the prompt
+  state cannot be determined, the plugin does nothing and `Ctrl+C` keeps its default behavior.
 - **Exit command detection.** The plugin dispatches the built-in `app.exit` command. It verifies that the command exists
   at startup and falls back to matching `/^(exit|quit)/i` command titles if the id ever changes. If no exit command can
   be found, the plugin shows an error toast instead of quitting.
@@ -104,6 +105,38 @@ A TUI-only plugin is configured in `cli.json`, not in `opencode.json`. See the
 - **OpenCode v1 is not supported.** `npm install -g opencode-ai` currently installs the v1 line (`1.19.6`), which uses
   the old `@opencode-ai/plugin` SDK. OpenCode v2 is distributed through the
   [GitHub releases](https://github.com/anomalyco/opencode/releases) and the official installer.
+
+---
+
+## Platform differences in copy behavior
+
+OpenCode handles text selection itself (the TUI enables SGR mouse reporting), and the built-in selection handler runs
+*before* the app keybindings. What `Ctrl+C` does while text is selected therefore depends on `terminal.copy`:
+
+| Platform | `terminal.copy` default | Drag-select, then `Ctrl+C` |
+| --- | --- | --- |
+| Linux / macOS / WSL | `select` | The text is **already copied** when you release the mouse (OpenCode shows *"Copied to clipboard"*). Pressing `Ctrl+C` afterwards only dismisses the selection, so the plugin treats it as an exit intent: the first press shows the hint, a second press exits. |
+| Windows | `manual` | The text is copied **by `Ctrl+C`**. OpenCode consumes the key (it never reaches the exit command), so the plugin does not interfere. |
+
+You can change the default in `opencode.json`:
+
+```jsonc
+{
+  "terminal": {
+    "copy": "manual" // or "select"
+  }
+}
+```
+
+With `terminal.copy: "manual"` on Linux/macOS/WSL, `Ctrl+C` copies the selection and consumes the key, so the plugin
+never sees it either.
+
+**In short:** on Linux/macOS/WSL the copy already happened at mouse-up, so `Ctrl+C` afterwards being an exit intent
+matches Codex CLI behavior. On Windows `Ctrl+C` remains a copy key while a selection is active.
+
+A side effect worth knowing: without this plugin, `Ctrl+C` on an empty prompt in OpenCode quits immediately, and on
+Linux/WSL `Ctrl+C` with an active selection also quits (the built-in selection handler dismisses the selection without
+consuming the key). With the plugin installed, neither case quits on the first press.
 
 ---
 

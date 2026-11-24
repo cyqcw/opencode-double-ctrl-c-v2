@@ -14,17 +14,34 @@ type Options = {
 }
 
 /**
- * The prompt input is a private renderer property (`_currentFocusedRenderable`).
- * OpenCode does not expose it through the plugin API, so the value is read defensively:
- * when the focused renderable is not a text input, `plainText` is not a string and
- * the plugin stays out of the way.
+ * Returns the currently focused renderable, or `undefined` when it cannot be
+ * determined.
+ *
+ * `renderer.currentFocusedRenderable` is the public accessor of the OpenTUI
+ * renderer. The private `_currentFocusedRenderable` field is only used as a
+ * fallback for older renderer builds that do not expose the accessor.
+ */
+function focusedRenderable(renderer: any): any {
+  return renderer?.currentFocusedRenderable ?? renderer?._currentFocusedRenderable
+}
+
+/**
+ * Reads the text of the focused prompt.
+ *
+ * OpenCode does not expose the prompt contents through the plugin API, so the
+ * value is read defensively from the focused renderable: when the focused
+ * renderable is not a text input, `plainText` is not a string and the plugin
+ * stays out of the way.
  */
 function promptText(renderer: any): string | undefined {
-  const focused = renderer?._currentFocusedRenderable
+  const focused = focusedRenderable(renderer)
   const text = focused?.plainText
   return typeof text === "string" ? text : undefined
 }
 
+/**
+ * `renderer.hasSelection` is the public getter of the OpenTUI renderer.
+ */
 function hasSelection(renderer: any): boolean {
   return renderer?.hasSelection === true
 }
