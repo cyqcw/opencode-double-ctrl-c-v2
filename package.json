@@ -1,0 +1,48 @@
+{
+  "name": "opencode-double-ctrl-c-v2",
+  "version": "0.1.0",
+  "description": "Require two Ctrl+C presses to exit the OpenCode TUI, Codex CLI style. Built for the OpenCode v2 plugin API.",
+  "license": "MIT",
+  "author": {
+    "name": "cyqcw",
+    "url": "https://github.com/cyqcw"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cyqcw/opencode-double-ctrl-c-v2.git"
+  },
+  "homepage": "https://github.com/cyqcw/opencode-double-ctrl-c-v2#readme",
+  "bugs": {
+    "url": "https://github.com/cyqcw/opencode-double-ctrl-c-v2/issues"
+  },
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "opencode-tui",
+    "tui",
+    "keymap",
+    "ctrl-c",
+    "exit",
+    "quit",
+    "codex"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./tui": "./src/tui.ts"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "oc-plugin": [
+    "tui"
+  ],
+  "peerDependencies": {
+    "@opencode/plugin": ">=2.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
