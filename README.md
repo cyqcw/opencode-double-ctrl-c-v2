@@ -20,28 +20,24 @@ opencode plugin add opencode-double-ctrl-c-v2
 
 Restart OpenCode after installing.
 
-### Required: unbind `Ctrl+C` from "Exit the app"
+**That is all.** No configuration is required — the plugin intercepts the default `Ctrl+C` → *Exit the app* binding
+itself, so the app no longer quits on the first press.
 
-OpenCode binds `Ctrl+C` to the built-in **Exit the app** command by default. While that binding is active, the built-in
-command quits on the *first* press, before this plugin can do anything — the plugin would appear to do nothing at all.
+### Optional: keep a single-press exit shortcut
 
-Remove `ctrl+c` from `app.exit` in `~/.config/opencode/cli.json`:
+If you would rather still have a one-key way out, rebind the built-in exit command in `~/.config/opencode/cli.json`:
 
 ```jsonc
 {
-  "$schema": "https://opencode.ai/config.json",
+  "$schema": "https://opencode.ai/v2/cli.json",
   "keybinds": {
     "app.exit": "ctrl+d,<leader>q"
-  },
-  "plugins": [
-    { "package": "opencode-double-ctrl-c-v2" }
-  ]
+  }
 }
 ```
 
-`ctrl+d` and `<leader>q` stay available as single-press exit shortcuts, so nothing is lost.
-
-> The plugin checks this binding on startup and shows a warning toast if `Ctrl+C` is still bound to `app.exit`.
+`ctrl+d` and `<leader>q` then exit immediately, and `Ctrl+C` is reserved for the two-press flow. This is optional — the
+plugin works with the default keybindings as well.
 
 ---
 
@@ -87,9 +83,9 @@ A TUI-only plugin is configured in `cli.json`, not in `opencode.json`. See the
 
 ## Notes and limitations
 
-- **The plugin never consumes the key.** It observes `Ctrl+C` through a keymap layer and always lets keyboard dispatch
-  continue, so the built-in *clear input* and *copy* actions keep working. The only way it leaves the app is by
-  dispatching the built-in `app.exit` command itself.
+- **The plugin consumes `Ctrl+C` only when the prompt is empty.** In that state it stops the key from reaching the
+  built-in *Exit the app* command, which is what makes zero-configuration work. When the prompt has text, or a selection
+  is active, the key is passed through untouched and the built-in *clear input* / *copy* actions keep working.
 - **`_currentFocusedRenderable` is an internal property.** OpenCode does not expose the prompt contents through the
   public plugin API, so the plugin reads `renderer._currentFocusedRenderable.plainText` to find out whether the prompt is
   empty. If a future OpenCode release changes the renderer internals, this plugin may stop detecting the prompt state.
@@ -116,13 +112,14 @@ A TUI-only plugin is configured in `cli.json`, not in `opencode.json`. See the
 The plugin registers a keymap layer with `mode: "global"` and `priority: 100` that binds `ctrl+c`. Its `run` handler:
 
 1. ignores the event when it is not `Ctrl+C`;
-2. ignores it when the renderer reports a selection (`renderer.hasSelection`);
-3. ignores it when the focused prompt still holds text;
-4. otherwise arms the exit and shows the hint toast;
-5. on a second `Ctrl+C` inside the window, dispatches `app.exit`.
+2. ignores it when the renderer reports a selection (`renderer.hasSelection`) — copying wins;
+3. ignores it when the focused prompt still holds text — clearing wins;
+4. otherwise it **consumes** the event (returns `undefined` instead of `false`), so the built-in *Exit the app* command
+   never sees the key, and shows the hint toast;
+5. on a second `Ctrl+C` inside the window, consumes the event again and dispatches `app.exit`, which quits the app.
 
-The handler always returns `false`, which tells the keymap to continue dispatching, so lower-priority layers — the
-built-in *clear input* and *copy* actions — still receive the key.
+Because the built-in exit command is reached through `keymap.dispatch("app.exit")` rather than through the key
+press, it is unaffected by the interception — the app exits exactly once, on the second press.
 
 ---
 

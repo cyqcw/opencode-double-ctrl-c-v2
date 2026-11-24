@@ -1,6 +1,6 @@
 {
   "name": "opencode-double-ctrl-c-v2",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Require two Ctrl+C presses to exit the OpenCode TUI, Codex CLI style. Built for the OpenCode v2 plugin API.",
   "license": "MIT",
   "author": {

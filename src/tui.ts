@@ -40,9 +40,9 @@ function resolveExitCommand(context: any): string | undefined {
     const listed = context.keymap?.commands?.()
     commands = Array.isArray(listed) ? [...listed] : []
   } catch {
-    return undefined
+    return "app.exit"
   }
-  if (commands.length === 0) return undefined
+  if (commands.length === 0) return "app.exit"
 
   const exact = commands.find((command) => command?.id === "app.exit")
   if (exact) return exact.id
@@ -53,21 +53,7 @@ function resolveExitCommand(context: any): string | undefined {
   const byTitle = commands.find((command) => /^(exit|quit)\b/i.test(command?.title ?? ""))
   if (byTitle?.id) return byTitle.id
 
-  return undefined
-}
-
-/**
- * OpenCode binds Ctrl+C to "Exit the app" by default. While that binding is
- * active the built-in command exits on the first press, before this plugin can
- * do anything. The plugin therefore checks the binding at startup and warns.
- */
-function exitStillBoundToCtrlC(context: any): boolean {
-  try {
-    const shortcuts = context.keymap?.shortcuts?.("app.exit") ?? []
-    return Array.isArray(shortcuts) && shortcuts.some((shortcut) => String(shortcut).toLowerCase() === "ctrl+c")
-  } catch {
-    return false
-  }
+  return "app.exit"
 }
 
 export default Plugin.define({
@@ -108,16 +94,9 @@ export default Plugin.define({
             const now = Date.now()
             if (armedAt > 0 && now - armedAt <= windowMs) {
               armedAt = 0
-              if (!exitCommand) {
-                context.ui.toast.show({
-                  message: "Could not find the exit command (app.exit). This OpenCode version may not be supported.",
-                  variant: "error",
-                  duration: 5000,
-                })
-                return false
-              }
+              // Consume the event so the built-in app.exit does not also fire.
               context.keymap.dispatch(exitCommand)
-              return false
+              return undefined
             }
 
             armedAt = now
@@ -126,7 +105,10 @@ export default Plugin.define({
               variant: "info",
               duration: windowMs,
             })
-            return false
+            // Consume the event: the built-in "app.exit" (still bound to Ctrl+C
+            // by default) must not run, otherwise the app would exit on the
+            // first press. This is what makes the plugin work with zero config.
+            return undefined
           },
         },
       ],
@@ -141,16 +123,6 @@ export default Plugin.define({
       armedAt = 0
     }
     keyInput?.on?.("keypress", onKey)
-
-    if (exitStillBoundToCtrlC(context)) {
-      context.ui.toast.show({
-        title: "opencode-double-ctrl-c-v2",
-        message:
-          'Ctrl+C is still bound to "Exit the app". Remove it (keybinds.app.exit = "ctrl+d,<leader>q") in cli.json, otherwise OpenCode exits on the first press.',
-        variant: "warning",
-        duration: 8000,
-      })
-    }
 
     return () => {
       keyInput?.off?.("keypress", onKey)
